@@ -19,10 +19,10 @@ CREATE TABLE wall_posts (
 
 -- Таблица сообщений чата
 CREATE TABLE chat_messages (
-    id          SERIAL    PRIMARY KEY,
-    sender_id   INT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    receiver_id INT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    text        TEXT      NOT NULL CHECK (text <> ''),
+    id SERIAL PRIMARY KEY,
+    sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL CHECK (text <> ''),
     created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
 
     -- нельзя отправить сообщение самому себе

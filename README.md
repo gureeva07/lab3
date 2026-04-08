@@ -1,137 +1,157 @@
 # Social Network API
 
-Вариант 1, 2 лабораторная работа "Разработка REST API сервиса"
+Лабораторная работа №3 "Проектирование и оптимизация реляционной базы данных", 1 вариант
 
-Фреймворк: **C++ userver** 
+База данных: **PostgreSQL 16**
 
-## Описание
 
-REST API сервис для социальной сети с поддержкой аутентификации, поиска пользователей, стены и P2P-сообщений.
+## Схема базы данных
 
-**Сущности:**
-- **User** — пользователь 
-- **Wall** — запись на стене пользователя
-- **Chat** — сообщение между пользователями
+Три основные таблицы:
 
-**Хранилище:** in-memory (без бд)
+- `users` — хранит пользователей. Логин уникален, поиск по логину и по маске
+- `wall_posts` — записи на стене. Каждая запись привязана к владельцу стены (`owner_id`) и автору (`author_id`)
+- `chat_messages` — личные сообщения. Хранят отправителя (`sender_id`), получателя (`receiver_id`) и текст
 
-## Инструкция по запуску
+Все связи между таблицами через внешние ключи (FK). Индексы созданы на внешние ключи и колонки, используемые в поиске.
 
-### Запуск
+## Запуск
 
-```bash
-docker-compose build   # собрать образ
-docker-compose up      # запустить сервис
-```
+### Требования
 
-Или одной командой:
+- Docker
+- Docker Compose
+
+### Запустить всё одной командой
 
 ```bash
 docker-compose up --build
 ```
 
-Сервис будет доступен на `http://localhost:8080`.
+Это запустит:
+1. PostgreSQL — создаст базу, применит `schema.sql` и `data.sql`
+2. API-сервис — поднимется на `http://localhost:8080`
 
-## Структура проекта
+### Остановить
 
-```
-.
-├── configs/
-│   └── static_config.yaml       # Конфигурация userver (порты, логирование, хендлеры)
-├── src/
-│   ├── Auth/
-│   │   ├── AuthHandlers.hpp     # Обработчики: регистрация, вход, выход
-│   │   └── AuthHandlers.cpp
-│   ├── Chat/
-│   │   ├── ChatHandlers.hpp     # Обработчики сообщений
-│   │   └── ChatHandlers.cpp
-│   ├── User/
-│   │   ├── UserHandlers.hpp     # Обработчики поиска пользователей
-│   │   └── UserHandlers.cpp
-│   ├── Wall/
-│   │   ├── WallHandlers.hpp     # Обработчики стены (посты)
-│   │   └── WallHandlers.cpp
-│   ├── AuthHelper.hpp           # Проверка Bearer-токена (inline)
-│   ├── DTO.hpp                  # Структуры данных: User, WallPost, ChatMessage
-│   ├── JsonHelper.hpp           # Сериализация DTO в JSON
-│   ├── JsonHelper.cpp
-│   ├── Storage.hpp              # In-memory хранилище 
-│   ├── Storage.cpp
-│   ├── hello.hpp                # Тестовый вариант (заглушка)
-│   ├── hello.cpp
-│   ├── hello_benchmark.cpp      # Бенчмарки
-│   ├── hello_test.cpp           # Юнит-тесты
-│   └── main.cpp                 # Точка входа, регистрация компонентов
-├── openapi.yaml                 # OpenAPI 3.0 спецификация
-├── CMakeLists.txt              # Сборка проекта
-├── docker-compose.yaml         # Docker-развёртывание
-└── README.md                  
-
+```bash
+docker-compose down
 ```
 
-## Эндпоинты
+Чтобы удалить и данные базы:
 
-| Метод  | URL                          | Описание                            | 
-|--------|------------------------------|-------------------------------------|
-| POST   | `/api/v1/auth/register`      | Создание нового пользователя        |
-| POST   | `/api/v1/auth/login`         | Вход, получение токена              |
-| POST   | `/api/v1/auth/logout`        | Выход из системы                    |
-| GET    | `/api/v1/users?login=`       | Поиск пользователя по логину        |
-| GET    | `/api/v1/users?name=`        | Поиск по маске имени/фамилии        |
-| POST   | `/api/v1/wall/{user_id}`     | Добавление записи на стену          |
-| GET    | `/api/v1/wall/{user_id}`     | Загрузка стены пользователя         |
-| POST   | `/api/v1/messages`           | Отправка сообщения                  | 
-| GET    | `/api/v1/messages?user_id=`  | Список сообщений пользователя       |
+```bash
+docker-compose down -v
+```
 
-## HTTP коды ответов
+## Подключение к базе данных вручную
 
-- 200 — OK
-- 201 — создано
-- 400 — не хватает полей в запросе
-- 401 — токен неверный или отсутствует
-- 404 — ресурс не найден
-- 409 — логин уже занят
+```bash
+docker exec -it service_template-postgres-1 psql -U social_user -d social_network
+```
 
-## Тесты (curl)
+После входа можно выполнять SQL-запросы, например:
 
-### 1. Регистрация
+```sql
+SELECT * FROM users;
+SELECT * FROM wall_posts;
+SELECT * FROM chat_messages;
+```
+
+## Файлы базы данных
+
+| Файл | Описание |
+|------|----------|
+| `service_template/schema.sql` | создание таблиц и индексов |
+| `service_template/data.sql` | тестовые данные |
+| `service_template/queries.sql` | SQL-запросы для всех операций API |
+| `service_template/optimization.md` | анализ и оптимизация запросов с EXPLAIN |
+
+## Эндпоинты API (ручки)
+
+| Метод | URL | Описание |
+|-------|-----|----------|
+| POST | `/api/v1/auth/register` | создание нового пользователя |
+| POST | `/api/v1/auth/login` | вход, получение токена |
+| POST | `/api/v1/auth/logout` | выход из системы |
+| GET | `/api/v1/users?login=` | поиск пользователя по логину |
+| GET | `/api/v1/users?name=` | поиск по маске имени и фамилии |
+| POST | `/api/v1/wall/{user_id}` | добавление записи на стену |
+| GET | `/api/v1/wall/{user_id}` | загрузка стены пользователя |
+| POST | `/api/v1/messages` | отправка сообщения пользователю |
+| GET | `/api/v1/messages?user_id=` | получение списка сообщений |
+
+## Примеры запросов
+
+### Регистрация
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"login":"alina_gureeva","password":"bestpassword","first_name":"Alina","last_name":"Gureeva"}'
+  -d '{"login":"alina","password":"pass123","first_name":"Alina","last_name":"Gureeva"}'
 ```
 
-### 2. Логин (получение токена)
+### Вход (получение токена)
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"alina_gureeva","password":"bestpassword"}'
+  -d '{"login":"alina","password":"pass123"}'
 ```
 
-Скопируйте `token` — он потребуется во всех последующих запросах
+Скопируйте `token` из ответа — он нужен для всех последующих запросов.
 
-### 3. Поиск пользователя по логину
+### Поиск пользователя по логину
 
 ```bash
-curl "http://127.0.0.1:8080/api/v1/users?login=alina_gureeva" \
+curl "http://127.0.0.1:8080/api/v1/users?login=alina" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-### 4. Поиск по маске имени или фамилии
+### Поиск по маске имени или фамилии
 
 ```bash
 curl "http://127.0.0.1:8080/api/v1/users?name=Alina" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-### 5. Выход из системы
+### Добавить запись на стену
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/v1/auth/logout \
+curl -X POST http://127.0.0.1:8080/api/v1/wall/1 \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"Привет, мир!"}'
+```
+
+### Получить стену пользователя
+
+```bash
+curl http://127.0.0.1:8080/api/v1/wall/1 \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
+### Отправить сообщение
 
+```bash
+curl -X POST http://127.0.0.1:8080/api/v1/messages \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"receiver_id":2,"text":"Привет!"}'
+```
 
+### Получить список сообщений
+
+```bash
+curl "http://127.0.0.1:8080/api/v1/messages?user_id=1" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+## HTTP коды ответов
+
+- `200` — OK
+- `201` — ресурс создан
+- `400` — неверный запрос (не хватает полей)
+- `401` — токен неверный или отсутствует
+- `404` — ресурс не найден
+- `409` — логин уже занят
